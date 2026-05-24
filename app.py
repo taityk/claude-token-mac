@@ -33,6 +33,7 @@ class ClaudeTokenApp(rumps.App):
         self._auth = AuthManager()
         self._status: Optional[UsageStatus] = None
         self._last_fetch: Optional[datetime] = None
+        self._lock = threading.Lock()
 
         self._remaining_item = rumps.MenuItem("使用率: 読込中")
         self._updated_item = rumps.MenuItem("更新: —")
@@ -59,42 +60,51 @@ class ClaudeTokenApp(rumps.App):
     def _do_fetch(self):
         cookie = self._auth.get_cookie()
         if not cookie:
-            self._status = UsageStatus.unknown()
+            new_status = UsageStatus.unknown()
         else:
-            self._status = fetch_usage(cookie, self._config.warning_threshold)
-            if self._status.state == State.UNKNOWN:
+            new_status = fetch_usage(cookie, self._config.warning_threshold)
+            if new_status.state == State.UNKNOWN:
                 rumps.notification(
                     "Claude Token", "", "データ取得に失敗。再ログインが必要な場合があります。"
                 )
-        self._last_fetch = datetime.now()
+        with self._lock:
+            self._status = new_status
+            self._last_fetch = datetime.now()
         self._update_display()
 
     @rumps.timer(60)
     def maybe_poll(self, _):
-        if self._last_fetch is None:
+        with self._lock:
+            last_fetch = self._last_fetch
+        if last_fetch is None:
             return
-        elapsed = (datetime.now() - self._last_fetch).total_seconds()
+        elapsed = (datetime.now() - last_fetch).total_seconds()
         if elapsed >= self._config.poll_interval_minutes * 60:
             threading.Thread(target=self._do_fetch, daemon=True).start()
 
     @rumps.timer(1)
     def tick(self, _):
-        if self._status and self._status.state == State.LIMITED:
+        with self._lock:
+            status = self._status
+        if status and status.state == State.LIMITED:
             self._update_display()
 
     def _update_display(self):
-        if not self._status:
+        with self._lock:
+            status = self._status
+            last_fetch = self._last_fetch
+        if not status:
             return
-        title = format_title(self._status)
-        self._set_colored_title(title, self._status.state)
+        title = format_title(status)
+        self._set_colored_title(title, status.state)
 
-        if self._status.remaining is not None:
-            self._remaining_item.title = f"5時間枠: {self._status.remaining}% 残り"
+        if status.remaining is not None:
+            self._remaining_item.title = f"5時間枠: {status.remaining}% 残り"
         else:
             self._remaining_item.title = "使用率: 不明"
 
-        if self._last_fetch:
-            self._updated_item.title = f"更新: {self._relative_time(self._last_fetch)}"
+        if last_fetch:
+            self._updated_item.title = f"更新: {self._relative_time(last_fetch)}"
 
     def _set_colored_title(self, text: str, state: State):
         if not hasattr(self, '_status_item'):

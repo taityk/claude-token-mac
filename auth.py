@@ -6,10 +6,10 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from constants import KEYRING_SERVICE, KEYRING_COOKIE_KEY
+
 logger = logging.getLogger(__name__)
 
-KEYRING_SERVICE = "claude-token-mac"
-KEYRING_COOKIE_KEY = "session_cookie"
 LOGIN_WINDOW = Path(__file__).parent / "login_window.py"
 
 class AuthManager:

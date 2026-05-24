@@ -1,11 +1,7 @@
 import json
-import keyring
 from pathlib import Path
-from typing import Optional
 
 CONFIG_PATH = Path.home() / ".config" / "claude-token-mac" / "config.json"
-KEYRING_SERVICE = "claude-token-mac"
-KEYRING_COOKIE_KEY = "session_cookie"
 
 
 class Config:
@@ -26,15 +22,3 @@ class Config:
             "warning_threshold": self.warning_threshold,
             "poll_interval_minutes": self.poll_interval_minutes,
         }, indent=2))
-
-    def get_session_cookie(self) -> Optional[str]:
-        return keyring.get_password(KEYRING_SERVICE, KEYRING_COOKIE_KEY)
-
-    def set_session_cookie(self, value: str):
-        keyring.set_password(KEYRING_SERVICE, KEYRING_COOKIE_KEY, value)
-
-    def clear_session_cookie(self):
-        try:
-            keyring.delete_password(KEYRING_SERVICE, KEYRING_COOKIE_KEY)
-        except keyring.errors.PasswordDeleteError:
-            pass

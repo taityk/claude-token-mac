@@ -3,8 +3,7 @@
 import keyring
 import webview
 
-KEYRING_SERVICE = "claude-token-mac"
-KEYRING_COOKIE_KEY = "session_cookie"
+from constants import KEYRING_SERVICE, KEYRING_COOKIE_KEY
 
 def main():
     def on_navigated(url: str):
