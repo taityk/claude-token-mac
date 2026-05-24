@@ -13,10 +13,7 @@ def test_get_cookie():
     with patch("auth.keyring.get_password", return_value="abc123"):
         assert AuthManager().get_cookie() == "abc123"
 
-def test_login_launches_subprocess(mocker):
-    mock_popen = mocker.patch("auth.subprocess.Popen")
-    mock_popen.return_value.wait.return_value = 0
+def test_login_calls_login_window(mocker):
+    mock_main = mocker.patch("login_window.main")
     AuthManager().login()
-    mock_popen.assert_called_once()
-    args = mock_popen.call_args[0][0]
-    assert "login_window.py" in args[-1]
+    mock_main.assert_called_once()

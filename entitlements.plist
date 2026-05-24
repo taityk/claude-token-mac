@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Sandbox (required for MAS) -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Outbound network access (HTTPS to claude.ai) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- WKWebView access to web content -->
+    <key>com.apple.security.network.server</key>
+    <false/>
+
+    <!-- Keychain access for session cookie storage -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)com.user.tokenbar</string>
+    </array>
+</dict>
+</plist>

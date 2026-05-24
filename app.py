@@ -157,11 +157,15 @@ class ClaudeTokenApp(rumps.App):
                 rumps.notification("TokenBar", "入力エラー", "数値を入力してください")
 
     def relogin(self, _):
-        threading.Thread(target=self._do_relogin, daemon=True).start()
-
-    def _do_relogin(self):
-        self._auth.login()
-        self._do_fetch()
+        resp = rumps.alert(
+            title="再ログイン",
+            message="TokenBarを再起動してログインし直します。\nCookieをクリアして終了しますか？",
+            ok="再起動",
+            cancel="キャンセル",
+        )
+        if resp == 1:
+            self._auth.logout()
+            rumps.quit_application()
 
     def quit_app(self, _):
         rumps.quit_application()
