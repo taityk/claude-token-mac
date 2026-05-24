@@ -6,10 +6,8 @@ import webview
 from constants import KEYRING_SERVICE, KEYRING_COOKIE_KEY
 
 def main():
-    def on_navigated(url: str):
-        if not url:
-            return
-        # Detect successful login: on claude.ai home, not on login/signup pages
+    def on_loaded():
+        url = win.get_current_url() or ""
         if (url.startswith("https://claude.ai/")
                 and "login" not in url
                 and "sign" not in url):
@@ -28,7 +26,7 @@ def main():
         width=960,
         height=720,
     )
-    win.events.navigated += on_navigated
+    win.events.loaded += on_loaded
     webview.start()
 
 if __name__ == "__main__":
