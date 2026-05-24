@@ -1,0 +1,118 @@
+"""Scraper for claude.ai usage data.
+
+Two-step flow:
+1. GET /api/account → extract org_uuid (cached after first successful fetch)
+2. GET /api/organizations/{org_uuid}/usage → parse utilization data
+
+All errors (network, auth, parse) produce UsageStatus.unknown().
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Optional
+
+import requests
+
+from models import State, UsageStatus
+
+_BASE = "https://claude.ai"
+
+# Module-level cache so we only call /api/account once per process.
+_org_uuid: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _get_org_uuid(session: requests.Session) -> Optional[str]:
+    """Fetch org UUID from /api/account, caching the result."""
+    global _org_uuid
+    if _org_uuid:
+        return _org_uuid
+    resp = session.get(f"{_BASE}/api/account", timeout=10)
+    if not resp.ok:
+        return None
+    data = resp.json()
+    try:
+        _org_uuid = data["memberships"][0]["organization"]["uuid"]
+        return _org_uuid
+    except (KeyError, IndexError):
+        return None
+
+
+def _get(session_cookie: str, org_uuid: str) -> requests.Response:
+    """Make authenticated request to the usage endpoint."""
+    session = requests.Session()
+    session.cookies.set("sessionKey", session_cookie, domain="claude.ai")
+    session.headers.update({
+        "Accept": "application/json",
+        "User-Agent": "claude-token-mac/1.0",
+    })
+    return session.get(
+        f"{_BASE}/api/organizations/{org_uuid}/usage",
+        timeout=10,
+    )
+
+
+def _parse_response(data: dict, warning_threshold: int) -> UsageStatus:
+    """Parse /api/organizations/{org}/usage response into UsageStatus.
+
+    Raises KeyError / ValueError if the payload is malformed.
+    """
+    five_hour = data["five_hour"]
+    utilization: float = float(five_hour["utilization"])
+    resets_at_raw: str = five_hour["resets_at"]
+
+    remaining = int(100 - utilization)
+    reset_at = datetime.fromisoformat(resets_at_raw)
+
+    if utilization >= 100:
+        state = State.LIMITED
+    elif remaining <= warning_threshold:
+        state = State.WARNING
+    else:
+        state = State.NORMAL
+
+    return UsageStatus(
+        state=state,
+        remaining=remaining,
+        reset_at=reset_at,
+        fetched_at=datetime.now(tz=timezone.utc),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def fetch_usage(session_cookie: str, warning_threshold: int) -> UsageStatus:
+    """Fetch and parse claude.ai usage status.
+
+    Returns UsageStatus.unknown() on any error (auth failure, network error,
+    unexpected payload shape).
+    """
+    try:
+        # Step 1: resolve org UUID (uses cached value after first call).
+        # We need a session to call _get_org_uuid, reuse the cookie.
+        account_session = requests.Session()
+        account_session.cookies.set("sessionKey", session_cookie, domain="claude.ai")
+        account_session.headers.update({
+            "Accept": "application/json",
+            "User-Agent": "claude-token-mac/1.0",
+        })
+
+        org_uuid = _get_org_uuid(account_session)
+        if org_uuid is None:
+            return UsageStatus.unknown()
+
+        # Step 2: fetch usage data.
+        resp = _get(session_cookie, org_uuid)
+        if not resp.ok:
+            return UsageStatus.unknown()
+
+        data = resp.json()
+        return _parse_response(data, warning_threshold)
+
+    except Exception:  # network errors, parse errors, anything else
+        return UsageStatus.unknown()
