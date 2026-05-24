@@ -1,0 +1,32 @@
+import keyring
+import subprocess
+import sys
+import time
+import logging
+from pathlib import Path
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+KEYRING_SERVICE = "claude-token-mac"
+KEYRING_COOKIE_KEY = "session_cookie"
+LOGIN_WINDOW = Path(__file__).parent / "login_window.py"
+
+class AuthManager:
+    def is_logged_in(self) -> bool:
+        return bool(keyring.get_password(KEYRING_SERVICE, KEYRING_COOKIE_KEY))
+
+    def get_cookie(self) -> Optional[str]:
+        return keyring.get_password(KEYRING_SERVICE, KEYRING_COOKIE_KEY)
+
+    def login(self):
+        logger.info("Launching login window")
+        proc = subprocess.Popen([sys.executable, str(LOGIN_WINDOW)])
+        proc.wait()
+        time.sleep(0.3)  # Let keyring write settle
+
+    def logout(self):
+        try:
+            keyring.delete_password(KEYRING_SERVICE, KEYRING_COOKIE_KEY)
+        except keyring.errors.PasswordDeleteError:
+            pass
