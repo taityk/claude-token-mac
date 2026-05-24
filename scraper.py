@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
+import threading
+
 import requests
 
 from models import State, UsageStatus
@@ -19,6 +21,7 @@ _BASE = "https://claude.ai"
 
 # Module-level cache so we only call /api/account once per process.
 _org_uuid: Optional[str] = None
+_org_uuid_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -39,17 +42,21 @@ def _make_session(session_cookie: str) -> requests.Session:
 def _get_org_uuid(session: requests.Session) -> Optional[str]:
     """Fetch org UUID from /api/account, caching the result."""
     global _org_uuid
-    if _org_uuid:
-        return _org_uuid
+    with _org_uuid_lock:
+        if _org_uuid:
+            return _org_uuid
+    # fetch outside lock to avoid holding it during network call
     resp = session.get(f"{_BASE}/api/account", timeout=10)
     if not resp.ok:
         return None
     data = resp.json()
     try:
-        _org_uuid = data["memberships"][0]["organization"]["uuid"]
-        return _org_uuid
+        uuid = data["memberships"][0]["organization"]["uuid"]
     except (KeyError, IndexError):
         return None
+    with _org_uuid_lock:
+        _org_uuid = uuid
+    return uuid
 
 
 def _get(session: requests.Session, org_uuid: str) -> requests.Response:

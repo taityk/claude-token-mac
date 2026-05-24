@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Optional
 
@@ -19,4 +19,4 @@ class UsageStatus:
 
     @classmethod
     def unknown(cls) -> UsageStatus:
-        return cls(state=State.UNKNOWN, remaining=None, reset_at=None, fetched_at=datetime.now())
+        return cls(state=State.UNKNOWN, remaining=None, reset_at=None, fetched_at=datetime.now(timezone.utc))

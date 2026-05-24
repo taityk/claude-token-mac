@@ -23,7 +23,12 @@ class AuthManager:
         logger.info("Launching login window")
         proc = subprocess.Popen([sys.executable, str(LOGIN_WINDOW)])
         proc.wait()
-        time.sleep(0.3)  # Let keyring write settle
+        # Poll until cookie appears (up to 2 seconds)
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            if self.is_logged_in():
+                break
+            time.sleep(0.1)
 
     def logout(self):
         try:

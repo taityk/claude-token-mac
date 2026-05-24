@@ -97,6 +97,8 @@ class ClaudeTokenApp(rumps.App):
             self._updated_item.title = f"更新: {self._relative_time(self._last_fetch)}"
 
     def _set_colored_title(self, text: str, state: State):
+        if not hasattr(self, '_status_item'):
+            return
         from AppKit import NSAttributedString, NSForegroundColorAttributeName, NSColor
         colors = {
             State.NORMAL: NSColor.labelColor(),
@@ -135,7 +137,7 @@ class ClaudeTokenApp(rumps.App):
                 self._config.poll_interval_minutes = int(resp.text)
                 self._config.save()
             except ValueError:
-                pass
+                rumps.notification("Claude Token", "入力エラー", "数値を入力してください")
 
     def relogin(self, _):
         threading.Thread(target=self._do_relogin, daemon=True).start()
