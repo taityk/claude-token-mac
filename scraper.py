@@ -25,6 +25,17 @@ _org_uuid: Optional[str] = None
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _make_session(session_cookie: str) -> requests.Session:
+    """Create and configure a requests session with authentication."""
+    session = requests.Session()
+    session.cookies.set("sessionKey", session_cookie, domain="claude.ai")
+    session.headers.update({
+        "Accept": "application/json",
+        "User-Agent": "claude-token-mac/1.0",
+    })
+    return session
+
+
 def _get_org_uuid(session: requests.Session) -> Optional[str]:
     """Fetch org UUID from /api/account, caching the result."""
     global _org_uuid
@@ -41,14 +52,8 @@ def _get_org_uuid(session: requests.Session) -> Optional[str]:
         return None
 
 
-def _get(session_cookie: str, org_uuid: str) -> requests.Response:
+def _get(session: requests.Session, org_uuid: str) -> requests.Response:
     """Make authenticated request to the usage endpoint."""
-    session = requests.Session()
-    session.cookies.set("sessionKey", session_cookie, domain="claude.ai")
-    session.headers.update({
-        "Accept": "application/json",
-        "User-Agent": "claude-token-mac/1.0",
-    })
     return session.get(
         f"{_BASE}/api/organizations/{org_uuid}/usage",
         timeout=10,
@@ -93,21 +98,16 @@ def fetch_usage(session_cookie: str, warning_threshold: int) -> UsageStatus:
     unexpected payload shape).
     """
     try:
-        # Step 1: resolve org UUID (uses cached value after first call).
-        # We need a session to call _get_org_uuid, reuse the cookie.
-        account_session = requests.Session()
-        account_session.cookies.set("sessionKey", session_cookie, domain="claude.ai")
-        account_session.headers.update({
-            "Accept": "application/json",
-            "User-Agent": "claude-token-mac/1.0",
-        })
+        # Build session once and reuse for both API calls
+        session = _make_session(session_cookie)
 
-        org_uuid = _get_org_uuid(account_session)
+        # Step 1: resolve org UUID (uses cached value after first call).
+        org_uuid = _get_org_uuid(session)
         if org_uuid is None:
             return UsageStatus.unknown()
 
         # Step 2: fetch usage data.
-        resp = _get(session_cookie, org_uuid)
+        resp = _get(session, org_uuid)
         if not resp.ok:
             return UsageStatus.unknown()
 

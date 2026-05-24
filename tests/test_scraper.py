@@ -112,6 +112,9 @@ class TestFetchUsage:
         mock_response.json.return_value = _make_usage_response(utilization)
         mocker.patch("scraper._get", return_value=mock_response)
 
+        # Also mock _make_session to return a mock session
+        mocker.patch("scraper._make_session", return_value=mocker.MagicMock())
+
     def test_normal_state(self, mocker):
         self._mock_get(mocker, 12.0)
         status = scraper.fetch_usage("fake-cookie", warning_threshold=20)
@@ -227,3 +230,38 @@ class TestGetOrgUuid:
 
         uuid = scraper._get_org_uuid(mock_session)
         assert uuid is None
+
+
+# ---------------------------------------------------------------------------
+# _make_session tests
+# ---------------------------------------------------------------------------
+
+class TestMakeSession:
+    def test_creates_session_with_auth(self):
+        """_make_session should create a configured session with cookie and headers."""
+        session = scraper._make_session("test-cookie-value")
+        assert isinstance(session, requests.Session)
+        assert session.cookies.get("sessionKey", domain="claude.ai") == "test-cookie-value"
+        assert session.headers["Accept"] == "application/json"
+        assert session.headers["User-Agent"] == "claude-token-mac/1.0"
+
+
+# ---------------------------------------------------------------------------
+# _get tests
+# ---------------------------------------------------------------------------
+
+class TestGet:
+    def test_makes_request_with_session(self, mocker):
+        """_get should use the provided session to make the request."""
+        mock_session = mocker.MagicMock()
+        mock_response = mocker.MagicMock()
+        mock_session.get.return_value = mock_response
+
+        result = scraper._get(mock_session, "test-org-uuid")
+
+        # Verify the session.get was called with the right URL
+        mock_session.get.assert_called_once_with(
+            "https://claude.ai/api/organizations/test-org-uuid/usage",
+            timeout=10,
+        )
+        assert result == mock_response
