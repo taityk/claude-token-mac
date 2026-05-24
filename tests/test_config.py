@@ -7,7 +7,7 @@ def test_default_values():
     with patch('config.CONFIG_PATH', Path('/tmp/nonexistent_config.json')):
         c = Config()
     assert c.warning_threshold == 10
-    assert c.poll_interval_minutes == 5
+    assert c.poll_interval_minutes == 1
 
 
 def test_save_and_load(tmp_path):

@@ -74,7 +74,7 @@ class ClaudeTokenApp(rumps.App):
             new_status = fetch_usage(cookie, self._config.warning_threshold)
             if new_status.state == State.UNKNOWN:
                 rumps.notification(
-                    "Claude Token", "", "データ取得に失敗。再ログインが必要な場合があります。"
+                    "TokenBar", "", "データ取得に失敗。再ログインが必要な場合があります。"
                 )
         with self._lock:
             self._status = new_status
@@ -147,14 +147,14 @@ class ClaudeTokenApp(rumps.App):
             cancel="キャンセル",
             dimensions=(200, 20),
         )
-        w.title = "Claude Token 設定"
+        w.title = "TokenBar 設定"
         resp = w.run()
         if resp.clicked == 1:
             try:
                 self._config.poll_interval_minutes = int(resp.text)
                 self._config.save()
             except ValueError:
-                rumps.notification("Claude Token", "入力エラー", "数値を入力してください")
+                rumps.notification("TokenBar", "入力エラー", "数値を入力してください")
 
     def relogin(self, _):
         threading.Thread(target=self._do_relogin, daemon=True).start()

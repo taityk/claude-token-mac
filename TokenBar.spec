@@ -20,7 +20,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Claude Token',
+    name='TokenBar',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -39,17 +39,17 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='Claude Token',
+    name='TokenBar',
 )
 app = BUNDLE(
     coll,
-    name='Claude Token.app',
-    icon=None,
-    bundle_identifier='com.user.claude-token-mac',
+    name='TokenBar.app',
+    icon='TokenBar.icns',
+    bundle_identifier='com.user.tokenbar',
     info_plist={
         'LSUIElement': True,
         'NSHighResolutionCapable': True,
-        'CFBundleDisplayName': 'Claude Token',
+        'CFBundleDisplayName': 'TokenBar',
         'CFBundleVersion': '0.1.0',
     },
 )
