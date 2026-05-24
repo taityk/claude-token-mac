@@ -11,6 +11,8 @@ from auth import AuthManager
 
 logger = logging.getLogger(__name__)
 
+_BAR_WIDTH = 20
+
 
 def format_title(status: UsageStatus) -> str:
     if status.state == State.LIMITED and status.reset_at:
@@ -26,6 +28,11 @@ def format_title(status: UsageStatus) -> str:
     return "◆ ?"
 
 
+def format_bar(remaining: int) -> str:
+    filled = round(remaining / 100 * _BAR_WIDTH)
+    return "█" * filled + "░" * (_BAR_WIDTH - filled) + f"  {remaining}%"
+
+
 class ClaudeTokenApp(rumps.App):
     def __init__(self):
         super().__init__("◆ …", quit_button=None)
@@ -35,12 +42,14 @@ class ClaudeTokenApp(rumps.App):
         self._last_fetch: Optional[datetime] = None
         self._lock = threading.Lock()
 
+        self._bar_item = rumps.MenuItem("░" * _BAR_WIDTH)
         self._remaining_item = rumps.MenuItem("使用率: 読込中")
         self._updated_item = rumps.MenuItem("更新: —")
 
         self.menu = [
             rumps.MenuItem("Claude.ai 使用状況"),
             rumps.separator,
+            self._bar_item,
             self._remaining_item,
             self._updated_item,
             rumps.separator,
@@ -70,7 +79,6 @@ class ClaudeTokenApp(rumps.App):
         with self._lock:
             self._status = new_status
             self._last_fetch = datetime.now()
-        self._update_display()
 
     @rumps.timer(60)
     def maybe_poll(self, _):
@@ -84,31 +92,27 @@ class ClaudeTokenApp(rumps.App):
 
     @rumps.timer(1)
     def tick(self, _):
-        with self._lock:
-            status = self._status
-        if status and status.state == State.LIMITED:
-            self._update_display()
-
-    def _update_display(self):
+        """All display updates happen here — always on the main thread."""
         with self._lock:
             status = self._status
             last_fetch = self._last_fetch
         if not status:
             return
+
         title = format_title(status)
         self._set_colored_title(title, status.state)
 
         if status.remaining is not None:
+            self._bar_item.title = format_bar(status.remaining)
             self._remaining_item.title = f"5時間枠: {status.remaining}% 残り"
         else:
+            self._bar_item.title = "░" * _BAR_WIDTH
             self._remaining_item.title = "使用率: 不明"
 
         if last_fetch:
             self._updated_item.title = f"更新: {self._relative_time(last_fetch)}"
 
     def _set_colored_title(self, text: str, state: State):
-        if not hasattr(self, '_status_item'):
-            return
         from AppKit import NSAttributedString, NSForegroundColorAttributeName, NSColor
         colors = {
             State.NORMAL: NSColor.labelColor(),
@@ -119,7 +123,10 @@ class ClaudeTokenApp(rumps.App):
         color = colors.get(state, NSColor.labelColor())
         attrs = {NSForegroundColorAttributeName: color}
         attributed = NSAttributedString.alloc().initWithString_attributes_(text, attrs)
-        self._status_item.button().setAttributedTitle_(attributed)
+        try:
+            self._status_item.button().setAttributedTitle_(attributed)
+        except Exception:
+            self.title = text
 
     def _relative_time(self, dt: datetime) -> str:
         secs = int((datetime.now() - dt).total_seconds())
