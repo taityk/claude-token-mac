@@ -22,10 +22,10 @@ def format_title(status: UsageStatus) -> str:
         secs = max(0, int((reset - datetime.now(timezone.utc)).total_seconds()))
         h, rem = divmod(secs, 3600)
         m, s = divmod(rem, 60)
-        return f"◆ {h}:{m:02d}:{s:02d}"
+        return f"{h}:{m:02d}:{s:02d}"
     if status.state in (State.NORMAL, State.WARNING) and status.remaining is not None:
-        return f"◆ {status.remaining}%"
-    return "◆ ?"
+        return f"{status.remaining}%"
+    return "?"
 
 
 def format_bar(remaining: int) -> str:
